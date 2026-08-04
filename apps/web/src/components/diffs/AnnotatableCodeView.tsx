@@ -94,6 +94,13 @@ interface DiffSelectionContext {
   item: CodeViewItem<DiffCommentAnnotationGroup>;
 }
 
+export function resolveCodeViewLineSelection(
+  range: SelectedLineRange | null,
+  context: DiffSelectionContext,
+): { id: string; range: SelectedLineRange } | null {
+  return range ? { id: context.item.id, range } : null;
+}
+
 export function AnnotatableCodeView({
   files,
   sectionId,
@@ -228,6 +235,12 @@ export function AnnotatableCodeView({
     },
     [filesByKey, sectionId, sectionTitle],
   );
+  const handleGutterUtilityClick = useCallback(
+    (range: SelectedLineRange | null, context: DiffSelectionContext) => {
+      setSelectedLines(resolveCodeViewLineSelection(range, context));
+    },
+    [],
+  );
 
   const hasOpenComment = draft !== null;
   return (
@@ -241,6 +254,7 @@ export function AnnotatableCodeView({
         ...options,
         enableGutterUtility: !hasOpenComment,
         enableLineSelection: !hasOpenComment,
+        onGutterUtilityClick: handleGutterUtilityClick,
         onLineSelectionEnd: beginComment,
       }}
       renderHeaderPrefix={(item) =>
