@@ -54,6 +54,26 @@ describe("diffPanelStore", () => {
     ).toEqual({ kind: "turn", turnId, filePath: "src/app.ts", revealRequestId: 2 });
   });
 
+  it("selects files in every diff scope and restores all changes", () => {
+    const store = useDiffPanelStore.getState();
+    store.selectGitScope(THREAD_REF, "unstaged");
+    store.selectFile(THREAD_REF, " src/app.ts ");
+    expect(useDiffPanelStore.getState().byThreadKey).toMatchObject({
+      "environment-1:thread-1": { kind: "unstaged", filePath: "src/app.ts" },
+    });
+
+    useDiffPanelStore.getState().selectGitScope(THREAD_REF, "branch");
+    useDiffPanelStore.getState().selectFile(THREAD_REF, "README.md");
+    expect(useDiffPanelStore.getState().byThreadKey).toMatchObject({
+      "environment-1:thread-1": { kind: "branch", filePath: "README.md" },
+    });
+
+    useDiffPanelStore.getState().selectFile(THREAD_REF, null);
+    expect(useDiffPanelStore.getState().byThreadKey).toMatchObject({
+      "environment-1:thread-1": { kind: "branch", filePath: null },
+    });
+  });
+
   it("restores the selected branch base after visiting another scope", () => {
     useDiffPanelStore.getState().selectBranchBaseRef(THREAD_REF, "origin/main");
     useDiffPanelStore.getState().selectGitScope(THREAD_REF, "unstaged");

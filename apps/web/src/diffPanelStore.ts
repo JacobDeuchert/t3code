@@ -6,8 +6,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { resolveStorage } from "./lib/storage";
 
 export type DiffPanelSelection =
-  | { kind: "branch"; baseRef: string | null }
-  | { kind: "unstaged" }
+  | { kind: "branch"; baseRef: string | null; filePath?: string | null }
+  | { kind: "unstaged"; filePath?: string | null }
   | { kind: "turn"; turnId: TurnId; filePath: string | null; revealRequestId: number };
 
 const DEFAULT_SELECTION: DiffPanelSelection = { kind: "branch", baseRef: null };
@@ -19,6 +19,7 @@ interface DiffPanelStoreState {
   selectGitScope: (ref: ScopedThreadRef, scope: "branch" | "unstaged") => void;
   selectBranchBaseRef: (ref: ScopedThreadRef, baseRef: string | null) => void;
   selectTurn: (ref: ScopedThreadRef, turnId: TurnId, filePath?: string) => void;
+  selectFile: (ref: ScopedThreadRef, filePath: string | null) => void;
   reconcileTurnSelection: (ref: ScopedThreadRef, availableTurnIds: ReadonlyArray<TurnId>) => void;
   removeThread: (ref: ScopedThreadRef) => void;
 }
@@ -83,6 +84,26 @@ export const useDiffPanelStore = create<DiffPanelStoreState>()(
                 filePath: filePath?.trim() || null,
                 revealRequestId: previous?.kind === "turn" ? previous.revealRequestId + 1 : 1,
               },
+            },
+          };
+        }),
+      selectFile: (ref, filePath) =>
+        set((state) => {
+          const threadKey = scopedThreadKey(ref);
+          const previous = state.byThreadKey[threadKey];
+          if (!previous) return state;
+          const normalizedFilePath = filePath?.trim() || null;
+          return {
+            byThreadKey: {
+              ...state.byThreadKey,
+              [threadKey]:
+                previous.kind === "turn"
+                  ? {
+                      ...previous,
+                      filePath: normalizedFilePath,
+                      revealRequestId: previous.revealRequestId + 1,
+                    }
+                  : { ...previous, filePath: normalizedFilePath },
             },
           };
         }),

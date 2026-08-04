@@ -38,6 +38,7 @@ export interface ResizableWidthHandlers {
 export function useResizableWidth(options: UseResizableWidthOptions): {
   readonly width: number;
   readonly handlers: ResizableWidthHandlers;
+  readonly resetWidth: () => void;
 } {
   const { storageKey, defaultWidth, minWidth, maxWidth, edge } = options;
 
@@ -161,8 +162,19 @@ export function useResizableWidth(options: UseResizableWidthOptions): {
     [releasePointer],
   );
 
+  const resetWidth = useCallback(() => {
+    const nextWidth = clamp(defaultWidth);
+    try {
+      setLocalStorageItem(storageKey, nextWidth, WidthSchema);
+    } catch (error) {
+      console.error("Could not persist panel width.", error);
+    }
+    setWidth(nextWidth);
+  }, [clamp, defaultWidth, storageKey]);
+
   return {
     width: clampedWidth,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel },
+    resetWidth,
   };
 }
