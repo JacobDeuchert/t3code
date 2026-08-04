@@ -332,6 +332,8 @@ export const make = Effect.gen(function* () {
       webPreferences: {
         preload: environment.preloadPath,
         backgroundThrottling: false,
+        // Custom notification chimes may play before the user interacts with a new window.
+        autoplayPolicy: "no-user-gesture-required",
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,

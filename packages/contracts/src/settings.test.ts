@@ -33,6 +33,23 @@ describe("ClientSettings word wrap", () => {
   });
 });
 
+describe("ClientSettings desktop notifications", () => {
+  it("defaults native notifications and custom sounds on", () => {
+    const settings = decodeClientSettings({});
+    expect(settings.desktopNotificationsEnabled).toBe(true);
+    expect(settings.desktopNotificationSoundsEnabled).toBe(true);
+  });
+
+  it("accepts independent notification and sound preferences", () => {
+    const patch = decodeClientSettingsPatch({
+      desktopNotificationsEnabled: false,
+      desktopNotificationSoundsEnabled: true,
+    });
+    expect(patch.desktopNotificationsEnabled).toBe(false);
+    expect(patch.desktopNotificationSoundsEnabled).toBe(true);
+  });
+});
+
 describe("ClientSettings glass opacity", () => {
   it("defaults to a readable translucent surface", () => {
     expect(decodeClientSettings({}).glassOpacity).toBe(80);

@@ -616,6 +616,14 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.confirmThreadDelete !== DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete
         ? ["Delete confirmation"]
         : []),
+      ...(settings.desktopNotificationsEnabled !==
+      DEFAULT_UNIFIED_SETTINGS.desktopNotificationsEnabled
+        ? ["Desktop notifications"]
+        : []),
+      ...(settings.desktopNotificationSoundsEnabled !==
+      DEFAULT_UNIFIED_SETTINGS.desktopNotificationSoundsEnabled
+        ? ["Notification sounds"]
+        : []),
       ...(isTextGenerationModelDirty ? ["Text generation model"] : []),
     ],
     [
@@ -624,6 +632,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.autoOpenPlanSidebar,
       settings.confirmThreadArchive,
       settings.confirmThreadDelete,
+      settings.desktopNotificationSoundsEnabled,
+      settings.desktopNotificationsEnabled,
       settings.addProjectBaseDirectory,
       settings.defaultThreadEnvMode,
       settings.newWorktreesStartFromOrigin,
@@ -671,6 +681,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       addProjectBaseDirectory: DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory,
       confirmThreadArchive: DEFAULT_UNIFIED_SETTINGS.confirmThreadArchive,
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
+      desktopNotificationsEnabled: DEFAULT_UNIFIED_SETTINGS.desktopNotificationsEnabled,
+      desktopNotificationSoundsEnabled: DEFAULT_UNIFIED_SETTINGS.desktopNotificationSoundsEnabled,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
     });
     onRestored?.();
@@ -1666,6 +1678,65 @@ export function GeneralSettingsPanel() {
           }
         />
       </SettingsSection>
+
+      {typeof window !== "undefined" && window.desktopBridge?.notifications ? (
+        <SettingsSection title="Notifications">
+          <SettingsRow
+            title="Desktop notifications"
+            description="Show a native notification when an agent finishes, fails, or needs your attention. Notifications are hidden while you are viewing the affected thread."
+            resetAction={
+              settings.desktopNotificationsEnabled !==
+              DEFAULT_UNIFIED_SETTINGS.desktopNotificationsEnabled ? (
+                <SettingResetButton
+                  label="desktop notifications"
+                  onClick={() =>
+                    updateSettings({
+                      desktopNotificationsEnabled:
+                        DEFAULT_UNIFIED_SETTINGS.desktopNotificationsEnabled,
+                    })
+                  }
+                />
+              ) : null
+            }
+            control={
+              <Switch
+                checked={settings.desktopNotificationsEnabled}
+                onCheckedChange={(checked) =>
+                  updateSettings({ desktopNotificationsEnabled: Boolean(checked) })
+                }
+                aria-label="Desktop notifications"
+              />
+            }
+          />
+          <SettingsRow
+            title="Notification sounds"
+            description="Play a T3 Code chime for agent completion and attention events, including while you are viewing the thread."
+            resetAction={
+              settings.desktopNotificationSoundsEnabled !==
+              DEFAULT_UNIFIED_SETTINGS.desktopNotificationSoundsEnabled ? (
+                <SettingResetButton
+                  label="notification sounds"
+                  onClick={() =>
+                    updateSettings({
+                      desktopNotificationSoundsEnabled:
+                        DEFAULT_UNIFIED_SETTINGS.desktopNotificationSoundsEnabled,
+                    })
+                  }
+                />
+              ) : null
+            }
+            control={
+              <Switch
+                checked={settings.desktopNotificationSoundsEnabled}
+                onCheckedChange={(checked) =>
+                  updateSettings({ desktopNotificationSoundsEnabled: Boolean(checked) })
+                }
+                aria-label="Notification sounds"
+              />
+            }
+          />
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection title="About">
         {isElectron || HOSTED_APP_CHANNEL ? (

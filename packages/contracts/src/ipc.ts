@@ -85,7 +85,7 @@ import type {
 import { EnvironmentId } from "./baseSchemas.ts";
 import { AuthAccessTokenResult, AuthSessionState, AuthWebSocketTicketResult } from "./auth.ts";
 import { AdvertisedEndpoint } from "./remoteAccess.ts";
-import { ExecutionEnvironmentDescriptor } from "./environment.ts";
+import { ExecutionEnvironmentDescriptor, ScopedThreadRef } from "./environment.ts";
 import type { ClientSettings } from "./settings.ts";
 import type {
   SourceControlCloneRepositoryInput,
@@ -958,6 +958,23 @@ export const DesktopPreviewAutomationWaitForInputSchema = Schema.Struct({
   input: PreviewAutomationWaitForInput,
 });
 
+export const DesktopNotificationKindSchema = Schema.Literals([
+  "completed",
+  "failed",
+  "waiting_for_approval",
+  "waiting_for_input",
+]);
+export type DesktopNotificationKind = typeof DesktopNotificationKindSchema.Type;
+
+export const DesktopNotificationInputSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isNonEmpty(), Schema.isMaxLength(512)),
+  kind: DesktopNotificationKindSchema,
+  title: Schema.String.check(Schema.isNonEmpty(), Schema.isMaxLength(120)),
+  body: Schema.String.check(Schema.isNonEmpty(), Schema.isMaxLength(240)),
+  threadRef: ScopedThreadRef,
+});
+export type DesktopNotificationInput = typeof DesktopNotificationInputSchema.Type;
+
 export interface DesktopBridge {
   getAppBranding: () => DesktopAppBranding | null;
   // One bootstrap per pool instance currently registered with bootstrap
@@ -1016,6 +1033,10 @@ export interface DesktopBridge {
   downloadUpdate: () => Promise<DesktopUpdateActionResult>;
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
+  notifications?: {
+    show: (input: DesktopNotificationInput) => Promise<boolean>;
+    onActivated: (listener: (threadRef: ScopedThreadRef) => void) => () => void;
+  };
   /**
    * Desktop-only preview surface. Present iff the renderer is hosted by the
    * Electron desktop build; web builds have `preview === undefined`.
