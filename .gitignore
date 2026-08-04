@@ -36,3 +36,7 @@ node_modules/
 *.log
 .env*
 !.env.example
+
+# nix build output symlinks
+/result
+/result-*
