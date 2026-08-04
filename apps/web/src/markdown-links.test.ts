@@ -1,11 +1,52 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  findBareWorkspaceFilePaths,
   resolveInlineCodeFileLinkMeta,
   resolveMarkdownFileLinkMeta,
   resolveMarkdownFileLinkTarget,
+  selectBareWorkspaceFilePath,
   rewriteMarkdownFileUriHref,
 } from "./markdown-links";
+
+describe("bare workspace file paths", () => {
+  it("uses the first exact filename returned by project search", () => {
+    const matches = findBareWorkspaceFilePaths("DiffPanel.tsx", [
+      { kind: "file", path: "apps/web/src/components/DiffPanel.tsx" },
+      { kind: "file", path: "apps/web/src/components/DiffPanel.test.tsx" },
+    ]);
+    expect(selectBareWorkspaceFilePath("DiffPanel.tsx", matches)).toBe(
+      "apps/web/src/components/DiffPanel.tsx",
+    );
+    expect(
+      findBareWorkspaceFilePaths("diffpanel.tsx", [
+        { kind: "file", path: "apps/web/src/components/DiffPanel.tsx" },
+      ]),
+    ).toEqual(["apps/web/src/components/DiffPanel.tsx"]);
+  });
+
+  it("prefers an exact filename from the git diff", () => {
+    const entries = [
+      { kind: "file" as const, path: "apps/mobile/src/DiffPanel.tsx" },
+      { kind: "file" as const, path: "apps/web/src/components/DiffPanel.tsx" },
+    ];
+    const matches = findBareWorkspaceFilePaths("DiffPanel.tsx", entries);
+    expect(
+      selectBareWorkspaceFilePath("DiffPanel.tsx", matches, [
+        "apps/web/src/components/DiffPanel.tsx",
+      ]),
+    ).toBe("apps/web/src/components/DiffPanel.tsx");
+    expect(matches).toHaveLength(2);
+    expect(findBareWorkspaceFilePaths("Missing.tsx", entries)).toEqual([]);
+  });
+
+  it("leaves explicit relative paths and unmatched filenames unchanged", () => {
+    expect(selectBareWorkspaceFilePath("components/DiffPanel.tsx", [])).toBe(
+      "components/DiffPanel.tsx",
+    );
+    expect(selectBareWorkspaceFilePath("Missing.tsx", [])).toBe("Missing.tsx");
+  });
+});
 
 describe("rewriteMarkdownFileUriHref", () => {
   it("rewrites file uri hrefs into direct path hrefs", () => {

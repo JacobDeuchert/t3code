@@ -68,6 +68,8 @@ import {
 import { remarkNormalizeListItemIndentation } from "../markdown-list-indentation";
 import {
   normalizeMarkdownLinkDestination,
+  findBareWorkspaceFilePaths,
+  selectBareWorkspaceFilePath,
   resolveInlineCodeFileLinkMeta,
   resolveMarkdownFileLinkMeta,
   rewriteMarkdownFileUriHref,
@@ -78,9 +80,11 @@ import { cn } from "../lib/utils";
 import { useRightPanelStore } from "../rightPanelStore";
 import { useActiveEnvironmentId } from "../state/entities";
 import { serverEnvironment } from "../state/server";
+import { projectEnvironment } from "../state/projects";
 import { assetEnvironment } from "../state/assets";
 import { usePreparedConnection } from "../state/session";
 import { previewEnvironment } from "../state/preview";
+import { vcsEnvironment } from "../state/vcs";
 import { useAtomCommand } from "../state/use-atom-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
 import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
@@ -743,7 +747,15 @@ interface MarkdownFileLinkProps {
   theme: "light" | "dark";
   threadRef?: ScopedThreadRef | undefined;
   onOpen: (targetPath: string) => Promise<AtomCommandResult<unknown, unknown>>;
-  onOpenInBrowser?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
+  onResolveTarget?:
+    | (() => Promise<{
+        readonly targetPath: string;
+        readonly workspaceRelativePath: string | null;
+      }>)
+    | undefined;
+  onOpenInBrowser?:
+    | ((targetPath: string) => Promise<AtomCommandResult<unknown, unknown>>)
+    | undefined;
   className?: string | undefined;
 }
 
@@ -1026,13 +1038,25 @@ const MarkdownFileLink = memo(function MarkdownFileLink({
   theme,
   threadRef,
   onOpen,
+  onResolveTarget,
   onOpenInBrowser,
   className,
 }: MarkdownFileLinkProps) {
+  const resolveTarget = useCallback(async () => {
+    if (!onResolveTarget) return { targetPath, workspaceRelativePath };
+    try {
+      return await onResolveTarget();
+    } catch (cause) {
+      reportMarkdownActionFailure({ operation: "resolve-file-link", target: targetPath }, cause);
+      return { targetPath, workspaceRelativePath };
+    }
+  }, [onResolveTarget, targetPath, workspaceRelativePath]);
+
   const handleOpenInEditor = useCallback(() => {
     void (async () => {
       try {
-        const result = await onOpen(targetPath);
+        const resolvedTarget = await resolveTarget();
+        const result = await onOpen(resolvedTarget.targetPath);
         if (result._tag === "Success" || isAtomCommandInterrupted(result)) {
           return;
         }
@@ -1062,15 +1086,18 @@ const MarkdownFileLink = memo(function MarkdownFileLink({
         );
       }
     })();
-  }, [onOpen, targetPath]);
+  }, [onOpen, resolveTarget, targetPath]);
 
   const handleOpenInFilePreview = useCallback(() => {
-    if (!threadRef || !workspaceRelativePath) {
-      handleOpenInEditor();
-      return;
-    }
-    useRightPanelStore.getState().openFile(threadRef, workspaceRelativePath, line);
-  }, [handleOpenInEditor, line, threadRef, workspaceRelativePath]);
+    void (async () => {
+      const resolvedTarget = await resolveTarget();
+      if (!threadRef || !resolvedTarget.workspaceRelativePath) {
+        handleOpenInEditor();
+        return;
+      }
+      useRightPanelStore.getState().openFile(threadRef, resolvedTarget.workspaceRelativePath, line);
+    })();
+  }, [handleOpenInEditor, line, resolveTarget, threadRef]);
 
   const handleOpenInBrowser = useCallback(() => {
     if (!onOpenInBrowser) {
@@ -1078,7 +1105,8 @@ const MarkdownFileLink = memo(function MarkdownFileLink({
     }
     void (async () => {
       try {
-        const result = await onOpenInBrowser();
+        const resolvedTarget = await resolveTarget();
+        const result = await onOpenInBrowser(resolvedTarget.targetPath);
         if (result._tag === "Success" || isAtomCommandInterrupted(result)) {
           return;
         }
@@ -1108,7 +1136,7 @@ const MarkdownFileLink = memo(function MarkdownFileLink({
         );
       }
     })();
-  }, [onOpenInBrowser, targetPath]);
+  }, [onOpenInBrowser, resolveTarget, targetPath]);
 
   const handleCopy = useCallback(
     (value: string, title: string) => {
@@ -1246,6 +1274,7 @@ function areMarkdownFileLinkPropsEqual(
     previous.theme === next.theme &&
     previous.threadRef === next.threadRef &&
     previous.onOpen === next.onOpen &&
+    previous.onResolveTarget === next.onResolveTarget &&
     previous.onOpenInBrowser === next.onOpenInBrowser &&
     previous.className === next.className
   );
@@ -1263,6 +1292,12 @@ function ChatMarkdown({
 }: ChatMarkdownProps) {
   const { resolvedTheme } = useTheme();
   const createAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
+    reportFailure: false,
+  });
+  const searchProjectEntries = useAtomQueryRunner(projectEnvironment.searchEntries, {
+    reportFailure: false,
+  });
+  const readVcsStatus = useAtomQueryRunner(vcsEnvironment.status, {
     reportFailure: false,
   });
   const openPreview = useAtomCommand(previewEnvironment.open, {
@@ -1363,6 +1398,53 @@ function ChatMarkdown({
     },
     [createAssetUrl, openPreview, preparedConnection, threadRef],
   );
+  const resolveMarkdownFileTarget = useCallback(
+    async (fileLinkMeta: MarkdownFileLinkMeta) => {
+      const relativePath = fileLinkMeta.workspaceRelativePath;
+      if (!cwd || !relativePath || /[\\/]/.test(relativePath)) {
+        return {
+          targetPath: fileLinkMeta.targetPath,
+          workspaceRelativePath: relativePath,
+        };
+      }
+
+      const targetEnvironmentId = threadRef?.environmentId ?? environmentId;
+      if (!targetEnvironmentId) {
+        return { targetPath: fileLinkMeta.targetPath, workspaceRelativePath: relativePath };
+      }
+      const searchResult = await searchProjectEntries({
+        environmentId: targetEnvironmentId,
+        input: { cwd, query: relativePath, kind: "file", limit: 20 },
+      });
+      if (searchResult._tag !== "Success") {
+        return { targetPath: fileLinkMeta.targetPath, workspaceRelativePath: relativePath };
+      }
+
+      const matchingPaths = findBareWorkspaceFilePaths(relativePath, searchResult.value.entries);
+      const statusResult =
+        matchingPaths.length > 1
+          ? await readVcsStatus({ environmentId: targetEnvironmentId, input: { cwd } })
+          : null;
+      const changedPaths =
+        statusResult?._tag === "Success"
+          ? statusResult.value.workingTree.files.map((file) => file.path)
+          : [];
+      const resolvedRelativePath = selectBareWorkspaceFilePath(
+        relativePath,
+        matchingPaths,
+        changedPaths,
+      );
+      const position = fileLinkMeta.line
+        ? `:${fileLinkMeta.line}${fileLinkMeta.column ? `:${fileLinkMeta.column}` : ""}`
+        : "";
+      const resolvedMeta = resolveMarkdownFileLinkMeta(`${resolvedRelativePath}${position}`, cwd);
+      return {
+        targetPath: resolvedMeta?.targetPath ?? fileLinkMeta.targetPath,
+        workspaceRelativePath: resolvedRelativePath,
+      };
+    },
+    [cwd, environmentId, readVcsStatus, searchProjectEntries, threadRef?.environmentId],
+  );
   const markdownComponents = useMemo<Components>(() => {
     const fileLinkChip = (
       fileLinkMeta: MarkdownFileLinkMeta,
@@ -1393,11 +1475,12 @@ function ChatMarkdown({
           theme={resolvedTheme}
           threadRef={threadRef}
           onOpen={openInPreferredEditor}
+          onResolveTarget={() => resolveMarkdownFileTarget(fileLinkMeta)}
           onOpenInBrowser={
             threadRef &&
             isPreviewSupportedInRuntime() &&
             isBrowserPreviewFile(fileLinkMeta.filePath)
-              ? () => openMarkdownFileInPreview(fileLinkMeta.filePath)
+              ? (targetPath) => openMarkdownFileInPreview(targetPath)
               : undefined
           }
           className={className}
@@ -1584,6 +1667,7 @@ function ChatMarkdown({
     inlineCodeFileLinkMetaByText,
     isStreaming,
     markdownFileLinkMetaByHref,
+    resolveMarkdownFileTarget,
     onTaskListChange,
     openInPreferredEditor,
     openExternalLinkInPreview,

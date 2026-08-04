@@ -1,3 +1,4 @@
+import type { ProjectEntry } from "@t3tools/contracts";
 import { formatWorkspaceRelativePath } from "./filePathDisplay";
 import { resolvePathLinkTarget, splitPathAndPosition } from "./terminal-links";
 
@@ -46,6 +47,34 @@ export interface MarkdownFileLinkMeta {
   basename: string;
   line?: number;
   column?: number;
+}
+
+export function findBareWorkspaceFilePaths(
+  relativePath: string,
+  entries: ReadonlyArray<ProjectEntry>,
+): ReadonlyArray<string> {
+  if (/[\\/]/.test(relativePath)) return [];
+  const normalizedRelativePath = relativePath.toLowerCase();
+  return entries.flatMap((entry) =>
+    entry.kind === "file" &&
+    entry.path.replaceAll("\\", "/").split("/").at(-1)?.toLowerCase() === normalizedRelativePath
+      ? [entry.path]
+      : [],
+  );
+}
+
+export function selectBareWorkspaceFilePath(
+  relativePath: string,
+  matchingPaths: ReadonlyArray<string>,
+  preferredPaths: ReadonlyArray<string> = [],
+): string {
+  const normalizedPreferredPaths = new Set(
+    preferredPaths.map((path) => path.replaceAll("\\", "/").toLowerCase()),
+  );
+  const preferredMatch = matchingPaths.find((path) =>
+    normalizedPreferredPaths.has(path.replaceAll("\\", "/").toLowerCase()),
+  );
+  return preferredMatch ?? matchingPaths[0] ?? relativePath;
 }
 
 function safeDecode(value: string): string {
