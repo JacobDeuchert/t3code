@@ -114,7 +114,7 @@
             src = dependencyManifests;
             # 4 is the lowest version pnpm_11 still accepts.
             fetcherVersion = 4;
-            hash = "sha256-T4Av+63TauvUxokF9hogiWGoC1laITqAvku7Jxm2plg=";
+            hash = "sha256-0rN8r7JpcFyjtQXDEo8Hh7X7Jo5NzV9Ys8bQXs2v180=";
           };
           pnpmWorkspaces = desktopWorkspaces;
 

@@ -40,3 +40,6 @@ node_modules/
 # nix build output symlinks
 /result
 /result-*
+
+# per-machine devcontainer that runs the repo's own dev stack
+/.devcontainer/local/
