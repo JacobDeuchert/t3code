@@ -38,7 +38,7 @@ git push --force-with-lease origin main
 
 status: active
 
-upstream base: `47f90ee2e9` (2026-11-16)
+upstream base: `e057f7a770` (2026-11-25)
 
 local files:
 
@@ -59,7 +59,13 @@ build time. After every merge expect to fix:
   both `fetchPnpmDeps` hashes (desktop and server). Build
   `.#desktop.pnpmDeps` and `.#server.pnpmDeps` with `--rebuild`, copy the
   `got:` hashes in. Without `--rebuild` a stale hash still "succeeds" by
-  reusing the old store path. After updating, build without `--rebuild`.
+  reusing the old store path; if the deps were never built, `--rebuild` errors
+  instead, so build plainly to get the mismatch. After updating, build without
+  `--rebuild`.
+- **Vendored `file:` tarballs.** `dependencyManifests` must contain every
+  `file:*.tgz` dependency, or the pnpm fetch fails with ENOENT. Currently
+  `apps/web/deps/*.tgz` (`@pierre/words`, added upstream 2026-11). If
+  upstream vendors a tarball elsewhere, add that directory too.
 - **SPDX license cache hash.** The revision is read from
   `scripts/lib/third-party-licenses.ts`; when upstream bumps
   `SPDX_LICENSE_LIST_REVISION`, update `spdxLicenseDetails.hash`.

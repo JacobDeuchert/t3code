@@ -107,6 +107,8 @@
             ./pnpm-workspace.yaml
             ./patches
             ./.pnpmfile.cjs
+            # Vendored "file:" tarball deps (e.g. @pierre/words in apps/web).
+            (lib.fileset.fileFilter (file: file.hasExt "tgz") ./apps/web/deps)
             (lib.fileset.fileFilter (file: file.name == "package.json") ./.)
           ];
         };
@@ -192,7 +194,13 @@
             src = dependencyManifests;
             # 4 is the lowest version pnpm_11 still accepts.
             fetcherVersion = 4;
-            hash = "sha256-PfnY73etAwDobn1FVVJcCYcGRYjF7f4/YjTdW86X/B4=";
+            # The registry stalls under pnpm's default parallelism here and the
+            # 60 s fetch timeout then aborts the whole fetch.
+            prePnpmInstall = ''
+              pnpm config set fetch-timeout 600000
+              pnpm config set network-concurrency 8
+            '';
+            hash = "sha256-8MrqLkOu5wjprmkhZieZT+ZV/3D/azIPiJoFccoVFWQ=";
           };
           pnpmWorkspaces = desktopWorkspaces;
 
@@ -300,7 +308,13 @@
             src = dependencyManifests;
             # 4 is the lowest version pnpm_11 still accepts.
             fetcherVersion = 4;
-            hash = "sha256-JTuIAFF0dbzxHzGgGUYyaSEAHK4JK6ZPBZRkbjd5Ffs=";
+            # The registry stalls under pnpm's default parallelism here and the
+            # 60 s fetch timeout then aborts the whole fetch.
+            prePnpmInstall = ''
+              pnpm config set fetch-timeout 600000
+              pnpm config set network-concurrency 8
+            '';
+            hash = "sha256-ZeAJuPoH4L4OjnE4GflVbrnfMARfN5w1voPlV1sJxoQ=";
           };
           pnpmWorkspaces = serverWorkspaces;
 
