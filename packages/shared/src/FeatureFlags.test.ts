@@ -16,6 +16,7 @@ it.effect("resolves T3CODE_FEATURE_FLAGS lists", () =>
         { githubAppClientId: Option.some("Iv23=x") },
       ],
       ["tanstack_source,typo_flag", { tanstackSource: true }],
+      ["disable_issue_tools", { disableIssueTools: true }],
       // One bad value turns every flag off rather than failing startup.
       ["tanstack_source,secret_providers=maybe", {}],
     ];
@@ -23,6 +24,7 @@ it.effect("resolves T3CODE_FEATURE_FLAGS lists", () =>
       assert.deepStrictEqual(yield* FeatureFlags.resolve(list), {
         secretProviders: false,
         tanstackSource: false,
+        disableIssueTools: false,
         githubAppClientId: Option.none(),
         ...expected,
       });

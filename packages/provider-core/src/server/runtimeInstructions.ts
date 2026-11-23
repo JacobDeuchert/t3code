@@ -1,4 +1,5 @@
 import type { AgentFeedbackMode } from "@t3tools/contracts";
+import { issueToolsDisabled } from "@t3tools/shared/FeatureFlags";
 
 import type { ProviderAdapterV2RuntimePolicy } from "./ProviderAdapter.ts";
 
@@ -9,11 +10,20 @@ export const AGENT_FEEDBACK_INSTRUCTIONS = {
   auto: "`t3_feedback` reports are wanted and cheap. Send one, then continue, when a T3 tool or `t3` command fails or gives a wrong result, the user corrects how you use T3 Code, or a T3 capability you looked for is missing. Once per problem; also when the user asks. Only about T3 Code, never the user's code or other tools.",
 } satisfies Record<AgentFeedbackMode, string>;
 
+// Fork patch 0002 (FORK.md): drop the issue-linking line when the issue tools are off.
+const withoutIssueLinking = (text: string) =>
+  issueToolsDisabled()
+    ? text
+        .split("\n")
+        .filter((line) => !line.includes("link_issue"))
+        .join("\n")
+    : text;
+
 /** Session-invariant; harnesses with a native system-prompt append can carry it once per session. */
-export const PULL_REQUEST_LINKING_INSTRUCTIONS = `<pull_request_linking>
+export const PULL_REQUEST_LINKING_INSTRUCTIONS = withoutIssueLinking(`<pull_request_linking>
 Link each PR you create, take over, or push to: link_pull_request, or link_pull_requests for several, full URL, every stack layer, as your next call. Host tools don't link for you. If linking fails, say so. Skip PRs you only read or review and PRs named only as background. Call watch_pull_request when asked to monitor or babysit, or when work you were asked to do, such as a merge, still waits on checks or reviews, even after an earlier unwatch. Finish any needed branch update and push first, then watch and end your turn. Otherwise act now or hand back. Delegated children never watch, even if the brief says babysit. After PR work, a child's last line is: PR <full URL>, head <SHA>, checks and reviews <state>. Links and watches persist across pushes. For PR waits, no sleep, loops, gh --watch, Monitor or ScheduleWakeup. Before handback, call unwatch_pull_request on any PR you watch. When pull_request_* tools are listed, use them, not gh or cafe, to read, list, open, edit, review, reply on, close, or merge PRs, and ci_logs and ci_rerun for their checks. pull_request_create links for you.
 If available, call link_issue for each issue you take on or file, even via CLI; skip issues you only read.
-</pull_request_linking>`;
+</pull_request_linking>`);
 
 /** Omit model and effort when the harness manages them dynamically. */
 export function buildRuntimeInstructions(runtime: {

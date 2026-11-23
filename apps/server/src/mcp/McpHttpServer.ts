@@ -62,6 +62,7 @@ import { HTML_RENDER_TOOL_NAME } from "@t3tools/shared/htmlRender";
 import { compactT3McpToolOutput } from "@t3tools/shared/toolOutput";
 import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
 import { MCP_TOOL_EXPOSURE_HEADER } from "@t3tools/provider-core/server/mcpSession";
+import * as FeatureFlags from "@t3tools/shared/FeatureFlags";
 import * as OrchestratorMcpService from "./OrchestratorMcpService.ts";
 import { PreviewControlsToolkit } from "./toolkits/previewControls/tools.ts";
 import * as PreviewControlsHandlers from "./toolkits/previewControls/handlers.ts";
@@ -1496,7 +1497,13 @@ export const layerPullRequestsToolkit = toolkitRegistration(
   PullRequestsHandlers.layer,
 ).pipe(Layer.provide(PullRequestWatchService.layer));
 
-const layerIssuesToolkit = toolkitRegistration(IssuesToolkit, IssuesHandlers.layer);
+const layerIssuesToolkit = Layer.unwrap(
+  Effect.sync(() =>
+    FeatureFlags.issueToolsDisabled()
+      ? Layer.empty
+      : toolkitRegistration(IssuesToolkit, IssuesHandlers.layer),
+  ),
+);
 
 const layerDeviceStandardToolkitRegistration = toolkitRegistration(
   DeviceStandardToolkit,
