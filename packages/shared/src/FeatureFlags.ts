@@ -17,6 +17,10 @@ const config = Config.all({
   tanstackSource: Config.Boolean("tanstack_source").pipe(Config.withDefault(false)),
   /** Fork patch 0002 (FORK.md): agents get no issue tools or issue-linking instruction. */
   disableIssueTools: Config.Boolean("disable_issue_tools").pipe(Config.withDefault(false)),
+  /** Fork patch 0003 (FORK.md): OpenCode runs runtime mode `auto` as `full-access`. */
+  openCodeAutoFullAccess: Config.Boolean("opencode_auto_full_access").pipe(
+    Config.withDefault(false),
+  ),
   /** The public client ID of the T3 Code for GitHub app; unset turns its sign-in off. */
   githubAppClientId: Config.option(Config.String("github_app_client_id")),
 });
@@ -54,6 +58,10 @@ export const resolve = Effect.fn("FeatureFlags.resolve")(function* (list: string
 /** Fork patch 0002: for module-level and layer-building code that has no FeatureFlags service. */
 export const issueToolsDisabled = (): boolean =>
   Effect.runSync(resolve(globalThis.process?.env[VARIABLE])).disableIssueTools;
+
+/** Fork patch 0003: for adapter code that has no FeatureFlags service. */
+export const openCodeAutoFullAccess = (): boolean =>
+  Effect.runSync(resolve(globalThis.process?.env[VARIABLE])).openCodeAutoFullAccess;
 
 export const layer = Layer.effect(
   FeatureFlags,

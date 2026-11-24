@@ -17,6 +17,10 @@ it.effect("resolves T3CODE_FEATURE_FLAGS lists", () =>
       ],
       ["tanstack_source,typo_flag", { tanstackSource: true }],
       ["disable_issue_tools", { disableIssueTools: true }],
+      [
+        "disable_issue_tools,opencode_auto_full_access",
+        { disableIssueTools: true, openCodeAutoFullAccess: true },
+      ],
       // One bad value turns every flag off rather than failing startup.
       ["tanstack_source,secret_providers=maybe", {}],
     ];
@@ -25,6 +29,7 @@ it.effect("resolves T3CODE_FEATURE_FLAGS lists", () =>
         secretProviders: false,
         tanstackSource: false,
         disableIssueTools: false,
+        openCodeAutoFullAccess: false,
         githubAppClientId: Option.none(),
         ...expected,
       });

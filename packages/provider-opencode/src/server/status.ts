@@ -898,7 +898,8 @@ export function openCode2CommandsToServerProviderSlashCommands(
   return slashCommands;
 }
 
-// OpenCode has no reviewer; Auto asks like Supervised.
+// OpenCode has no reviewer; Auto asks like Supervised, or allows everything like Full access
+// with fork patch 0003 (`opencode_auto_full_access`, FORK.md).
 const OPENCODE_2_PRESENTATION = {
   ...OPENCODE_PRESENTATION,
   showInteractionModeToggle: true,

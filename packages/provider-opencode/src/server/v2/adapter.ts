@@ -80,6 +80,7 @@ import { compareSemverVersions } from "@t3tools/shared/semver";
 import * as KeyedLock from "@t3tools/shared/KeyedLock";
 import { modelSelectionsEqual } from "@t3tools/shared/model";
 import { causeErrorTag } from "@t3tools/shared/observability";
+import { openCodeAutoFullAccess } from "@t3tools/shared/FeatureFlags";
 
 import {
   isProviderNativeImageAttachment,
@@ -452,13 +453,18 @@ const mcpRules = (mcpServerName: string | null): ReadonlyArray<Rule> =>
         { action: `${mcpServerName}_*`, resource: "*", effect: "allow" },
       ];
 
+// Fork patch 0003 (FORK.md): `opencode_auto_full_access` runs Auto as Full access, since
+// OpenCode has no reviewer to make Auto anything but Supervised.
+const allowsEverything = (runtimeMode: RulesPolicy["runtimeMode"]): boolean =>
+  runtimeMode === "full-access" || (runtimeMode === "auto" && openCodeAutoFullAccess());
+
 const sessionRules = (
   policy: RulesPolicy,
   paths: ReadonlyArray<Rule>,
   grants: ReadonlyArray<Rule>,
   mcpServerName: string | null,
 ): ReadonlyArray<Rule> => [
-  ...(policy.runtimeMode === "full-access"
+  ...(allowsEverything(policy.runtimeMode)
     ? [rule("*", "allow")]
     : [
         rule("shell", "ask"),
@@ -4169,13 +4175,13 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     ) {
       const plan = policy.interactionMode === "plan";
       const paths =
-        policy.runtimeMode === "full-access" && !plan
+        allowsEverything(policy.runtimeMode) && !plan
           ? []
           : yield* pathsFor(thread.directory, plan ? [thread.agent, "plan"] : [thread.agent]);
       return sessionRules(
         policy,
         paths,
-        policy.runtimeMode === "full-access" ? [] : thread.grants,
+        allowsEverything(policy.runtimeMode) ? [] : thread.grants,
         appThreadId === null ? null : yield* mcpServerNameFor(appThreadId),
       );
     });

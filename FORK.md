@@ -134,3 +134,64 @@ T3CODE_FEATURE_FLAGS=disable_issue_tools node -e 'import("@t3tools/provider-core
 ```
 
 prints `false`.
+
+---
+
+## 0003 OpenCode auto runs as full access
+
+status: active
+
+upstream base: `e057f7a770` (2026-11-25)
+
+local files:
+
+- `packages/shared/src/FeatureFlags.ts` (`opencode_auto_full_access` flag and
+  `openCodeAutoFullAccess()`)
+- `packages/provider-opencode/src/server/v2/adapter.ts` (`allowsEverything`,
+  used by `sessionRules` and twice in `rulesFor`)
+- `packages/provider-opencode/src/server/status.ts` (comment above
+  `OPENCODE_2_PRESENTATION` only)
+- `apps/server/src/orchestration-v2/Adapters/OpenCode2AdapterV2.test.ts` (two
+  tests: Auto with and without the flag)
+
+usage: start the server or desktop app with
+`T3CODE_FEATURE_FLAGS=disable_issue_tools,opencode_auto_full_access`. Same
+rules as 0002: the variable comes from the process environment (for the
+desktop app, the login shell), so changing it needs a restart.
+
+reason: OpenCode has no auto reviewer, so the OpenCode 2 adapter treats
+runtime mode `auto` exactly like `approval-required` and asks before every
+shell command and edit. Delegation cannot raise a child above its parent's
+mode, so an OpenCode child delegated from an `auto` thread was stuck
+supervised. The dev VM is egress-fenced and agents there are meant to run with
+full autonomy, so with the flag on, `auto` gets the same session rules as
+`full-access` (allow everything, no agent path rules, no saved grants). Plan
+mode still restricts, as it does for `full-access`. This also applies to
+OpenCode threads started directly in `auto`. With the flag off nothing
+changes. The OpenCode 1 adapter (`src/server/adapter.ts`,
+`openCodePermissionRules`) is not patched; it only runs against OpenCode 1.x
+binaries.
+
+conflict risk: low. Three one-line call sites plus a helper next to
+`sessionRules`. Watch for:
+
+- New `runtimeMode === "full-access"` checks in the v2 adapter. Route them
+  through `allowsEverything` too, or `auto` will ask again in that path.
+- `sessionRules` / `rulesFor` restructured or renamed. Re-apply the helper to
+  wherever full access turns into an allow-all rule set.
+- Upstream giving OpenCode a reviewer, or changing what `auto` means for it:
+  check this entry is still wanted.
+
+remove when: upstream gives OpenCode a real auto mode, or a per-provider
+override for inherited runtime modes.
+
+verification: the adapter tests cover both sides:
+
+```sh
+cd apps/server
+pnpm exec vp test run src/orchestration-v2/Adapters/OpenCode2AdapterV2.test.ts -t "in Auto"
+```
+
+Live: with the flag set, an OpenCode thread in Auto (or an OpenCode child
+delegated from an Auto thread) runs shell commands and edits without a
+permission prompt.

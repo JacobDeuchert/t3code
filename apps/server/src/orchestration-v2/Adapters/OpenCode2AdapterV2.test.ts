@@ -3,6 +3,7 @@ import { toolOutputImages } from "@t3tools/shared/toolOutput";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
+import { vi } from "vite-plus/test";
 import {
   ChatAttachmentId,
   ChatFileAttachment,
@@ -3441,6 +3442,57 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
         .pipe(Effect.forkScoped);
       yield* TestClock.adjust("250 millis");
       assert.equal((yield* Fiber.join(created)).nativeThreadRef?.nativeId, SESSION);
+    }),
+  );
+  // Fork patch 0003 (FORK.md): the flag is read from the environment whenever rules are built.
+  const withFeatureFlags = (list: string | undefined) =>
+    Effect.acquireRelease(
+      Effect.sync(() => vi.stubEnv("T3CODE_FEATURE_FLAGS", list)),
+      () => Effect.sync(() => vi.unstubAllEnvs()),
+    );
+  const autoPolicy = { ...policy(), runtimeMode: "auto" as const };
+  it.effect("asks in Auto like Supervised without opencode_auto_full_access", () =>
+    Effect.gen(function* () {
+      yield* withFeatureFlags(undefined);
+      const runtime = yield* openCode2ReplayRuntime([
+        ...opening,
+        out("agent.list", "<any>"),
+        reply("agent.list", agentList),
+        out("session.create", {
+          location: { directory: WORK },
+          model: { providerID: "opencode", id: "big-pickle" },
+          permissions: supervisedRules,
+        }),
+        replyData("session.create", sessionInfo({ permissions: supervisedRules })),
+      ]);
+      const created = yield* runtime.ensureThread({
+        threadId,
+        modelSelection: bigPickle,
+        runtimePolicy: autoPolicy,
+      });
+      assert.equal(created.nativeThreadRef?.nativeId, SESSION);
+    }),
+  );
+  it.effect("allows everything in Auto with opencode_auto_full_access", () =>
+    Effect.gen(function* () {
+      yield* withFeatureFlags("opencode_auto_full_access");
+      // Same rules as Full access: allow everything, then only this thread's T3 tools.
+      const permissions = t3Rules;
+      const runtime = yield* openCode2ReplayRuntime([
+        ...opening,
+        out("session.create", {
+          location: { directory: WORK },
+          model: { providerID: "opencode", id: "big-pickle" },
+          permissions,
+        }),
+        replyData("session.create", sessionInfo({ permissions })),
+      ]);
+      const created = yield* runtime.ensureThread({
+        threadId,
+        modelSelection: bigPickle,
+        runtimePolicy: autoPolicy,
+      });
+      assert.equal(created.nativeThreadRef?.nativeId, SESSION);
     }),
   );
   it.effect("allows a thread's other folders, except ones whose path would match siblings", () =>
