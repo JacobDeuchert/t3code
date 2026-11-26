@@ -1,4 +1,5 @@
 import { assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, vi } from "vite-plus/test";
 import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
 
 import {
@@ -95,6 +96,29 @@ describe("pi T3 MCP injection", () => {
       permissionOnly.env[T3_PI_MCP_EXTENSION_PATH_ENV],
       "/tmp/cache/pi-t3-mcp-extension.ts",
     );
+  });
+
+  // Fork patch 0004 (FORK.md): the flag is read from the environment on every launch.
+  describe("runtime mode auto", () => {
+    afterEach(() => vi.unstubAllEnvs());
+    const autoLaunch = () =>
+      buildPiRpcLaunch({
+        launchArgs: [],
+        environment: {},
+        mcpSession: undefined,
+        extensionPath: "/tmp/cache/pi-t3-mcp-extension.ts",
+        runtimeMode: "auto",
+      });
+
+    it("asks in Auto like Supervised without pi_auto_full_access", () => {
+      vi.stubEnv("T3CODE_FEATURE_FLAGS", "opencode_auto_full_access");
+      assert.equal(autoLaunch().env[T3_PI_RUNTIME_MODE_ENV], "approval-required");
+    });
+
+    it("allows everything in Auto with pi_auto_full_access", () => {
+      vi.stubEnv("T3CODE_FEATURE_FLAGS", "pi_auto_full_access");
+      assert.equal(autoLaunch().env[T3_PI_RUNTIME_MODE_ENV], "full-access");
+    });
   });
 
   it("forces tools and user extensions off for unattended text generation", () => {

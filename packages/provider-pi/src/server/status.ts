@@ -56,6 +56,8 @@ import {
   type PiDiscoveredCommands,
 } from "./commands.ts";
 
+// Pi has no reviewer; Auto asks like Supervised, or allows everything like Full access
+// with fork patch 0004 (`pi_auto_full_access`, FORK.md).
 const PI_PRESENTATION = {
   displayName: "Pi",
   showInteractionModeToggle: false,

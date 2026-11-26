@@ -195,3 +195,52 @@ pnpm exec vp test run src/orchestration-v2/Adapters/OpenCode2AdapterV2.test.ts -
 Live: with the flag set, an OpenCode thread in Auto (or an OpenCode child
 delegated from an Auto thread) runs shell commands and edits without a
 permission prompt.
+
+## 0004 Pi auto runs as full access
+
+status: active
+
+upstream base: `e057f7a770` (2026-11-25)
+
+local files:
+
+- `packages/shared/src/FeatureFlags.ts` (`pi_auto_full_access` flag and
+  `piAutoFullAccess()`)
+- `packages/provider-pi/src/server/mcpInjection.ts` (the `auto` branch of
+  `T3_PI_RUNTIME_MODE_ENV` in `buildPiRpcLaunch`)
+- `packages/provider-pi/src/server/status.ts` (comment above `PI_PRESENTATION`
+  only)
+- `packages/provider-pi/src/server/mcpInjection.test.ts` (two tests: Auto with
+  and without the flag)
+
+usage: add `pi_auto_full_access` to `T3CODE_FEATURE_FLAGS`, same rules as
+0002/0003 (process environment, restart to change).
+
+reason: same as 0003, for Pi. Pi has no auto reviewer, so `buildPiRpcLaunch`
+hands the T3 permission extension `approval-required` for runtime mode `auto`,
+and the extension asks before every tool except reads. A Pi child delegated
+from an `auto` thread (for example a Claude parent) was stuck supervised. With
+the flag on, `auto` is passed as `full-access` and the extension asks for
+nothing. With the flag off nothing changes. Pi has no plan mode in T3, so
+there is no plan exception to keep.
+
+conflict risk: low. One expression in `buildPiRpcLaunch`. Watch for:
+
+- Upstream moving the `auto` → `approval-required` mapping somewhere else
+  (the adapter, or the extension source in `mcpExtensionSource.ts`). Re-apply
+  the flag where `auto` is decided.
+- Upstream giving Pi a reviewer, or adding `auto` to Pi's
+  `supportedRuntimeModes`: check this entry is still wanted.
+
+remove when: upstream gives Pi a real auto mode, or a per-provider override
+for inherited runtime modes.
+
+verification:
+
+```sh
+cd packages/provider-pi
+pnpm exec vp test run src/server/mcpInjection.test.ts -t "in Auto"
+```
+
+Live: with the flag set, a Pi thread in Auto (or a Pi child delegated from an
+Auto thread) runs shell commands and edits without a permission prompt.

@@ -1,4 +1,5 @@
 import { tokenizeCliArgs } from "@t3tools/shared/cliArgs";
+import { piAutoFullAccess } from "@t3tools/shared/FeatureFlags";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 
@@ -308,7 +309,13 @@ export function buildPiRpcLaunch(input: {
       ...(hasT3Extension && input.runtimeMode !== undefined
         ? {
             [T3_PI_RUNTIME_MODE_ENV]:
-              input.runtimeMode === "auto" ? "approval-required" : input.runtimeMode,
+              input.runtimeMode === "auto"
+                ? // Fork patch 0004 (FORK.md): Pi has no reviewer, so Auto is Supervised
+                  // unless `pi_auto_full_access` runs it as Full access.
+                  piAutoFullAccess()
+                  ? "full-access"
+                  : "approval-required"
+                : input.runtimeMode,
           }
         : {}),
       ...(hasT3Mcp && input.mcpSession !== undefined

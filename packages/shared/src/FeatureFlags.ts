@@ -21,6 +21,8 @@ const config = Config.all({
   openCodeAutoFullAccess: Config.Boolean("opencode_auto_full_access").pipe(
     Config.withDefault(false),
   ),
+  /** Fork patch 0004 (FORK.md): Pi runs runtime mode `auto` as `full-access`. */
+  piAutoFullAccess: Config.Boolean("pi_auto_full_access").pipe(Config.withDefault(false)),
   /** The public client ID of the T3 Code for GitHub app; unset turns its sign-in off. */
   githubAppClientId: Config.option(Config.String("github_app_client_id")),
 });
@@ -62,6 +64,10 @@ export const issueToolsDisabled = (): boolean =>
 /** Fork patch 0003: for adapter code that has no FeatureFlags service. */
 export const openCodeAutoFullAccess = (): boolean =>
   Effect.runSync(resolve(globalThis.process?.env[VARIABLE])).openCodeAutoFullAccess;
+
+/** Fork patch 0004: for Pi launch code that has no FeatureFlags service. */
+export const piAutoFullAccess = (): boolean =>
+  Effect.runSync(resolve(globalThis.process?.env[VARIABLE])).piAutoFullAccess;
 
 export const layer = Layer.effect(
   FeatureFlags,
